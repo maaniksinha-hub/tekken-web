@@ -90,10 +90,13 @@ export function showMenu(o: MenuOptions): Screen & { refresh(): void } {
     render();
   };
   render();
+  const born = performance.now();
 
   return {
     refresh: render,
     update(nav) {
+      // Ignore input for a moment so the key press that opened this screen cannot also act on it.
+      if (performance.now() - born < 220) return;
       if (nav.up) move(-1);
       else if (nav.down) move(1);
       else if (nav.left) activate(-1);
@@ -109,8 +112,9 @@ export function showMenu(o: MenuOptions): Screen & { refresh(): void } {
 
 export interface SelectOptions {
   characters: CharacterData[];
-  /** "cpu": player 2 is picked automatically after player 1. */
-  mode: "local" | "cpu";
+  /** "cpu": player 2 is picked automatically after player 1. "solo": only player 1 picks. */
+  mode: "local" | "cpu" | "solo";
+  title?: string;
   onDone: (p0: CharacterData, p1: CharacterData) => void;
   onBack: () => void;
 }
@@ -121,7 +125,7 @@ export function showSelect(o: SelectOptions): Screen {
   resetSelectEdges();
   const dim = el("div", "dim");
   const panel = el("div", "panel wide");
-  panel.append(el("h1", "", "CHOOSE YOUR FIGHTER"));
+  panel.append(el("h1", "", o.title ?? "CHOOSE YOUR FIGHTER"));
   const sub = el("p", "sub");
   panel.append(sub);
   const grid = el("div", "grid");
@@ -142,9 +146,10 @@ export function showSelect(o: SelectOptions): Screen {
     const sig = `${cursor[0]}|${cursor[1]}|${locked[0]}|${locked[1]}`;
     if (sig === shown) return; // only redraw on change, so mouse clicks land on a stable element
     shown = sig;
-    sub.textContent = o.mode === "cpu"
-      ? (locked[0] === null ? "Player 1: pick a fighter. The CPU chooses after you." : "CPU is choosing...")
-      : "Player 1 (blue) and Player 2 (red): pick a fighter each.";
+    sub.textContent = o.mode === "solo" ? "Pick your fighter."
+      : o.mode === "cpu"
+        ? (locked[0] === null ? "Player 1: pick a fighter. The CPU chooses after you." : "CPU is choosing...")
+        : "Player 1 (blue) and Player 2 (red): pick a fighter each.";
     grid.replaceChildren();
     o.characters.forEach((c, i) => {
       const card = el("div", `card${cursor[0] === i ? " p0" : ""}${cursor[1] === i ? " p1" : ""}`);
@@ -152,7 +157,7 @@ export function showSelect(o: SelectOptions): Screen {
       sw.style.background = `linear-gradient(135deg, ${c.look.color}, ${c.look.accent})`;
       card.append(sw, el("div", "nm", c.name), el("div", "st", `HP ${c.maxHp}`));
       if (cursor[0] === i) card.append(Object.assign(el("span", "badge b0", locked[0] === i ? "P1 ✓" : "P1")));
-      if (cursor[1] === i) card.append(Object.assign(el("span", "badge b1", o.mode === "cpu" ? "CPU" : locked[1] === i ? "P2 ✓" : "P2")));
+      if (cursor[1] === i && o.mode !== "solo") card.append(Object.assign(el("span", "badge b1", o.mode === "cpu" ? "CPU" : locked[1] === i ? "P2 ✓" : "P2")));
       card.addEventListener("click", () => {
         if (locked[0] === null) { cursor[0] = i; confirm(0); }
         else if (o.mode === "local" && locked[1] === null) { cursor[1] = i; confirm(1); }
@@ -173,6 +178,7 @@ export function showSelect(o: SelectOptions): Screen {
     if (locked[p] !== null) return;
     locked[p] = cursor[p];
     uiSelect();
+    if (o.mode === "solo" && p === 0) { locked[1] = locked[0]; finish(); return; }
     if (o.mode === "cpu" && p === 0) {
       cursor[1] = Math.floor(Math.random() * n); // UI only; never used by the sim
       cpuAt = performance.now() + 900;
@@ -302,4 +308,43 @@ export function showControls(onBack: () => void, padCount: () => number): Screen
     wide: true,
   });
   return screen;
+}
+
+// ---- How to play ----
+
+const HOWTO: [string, string][] = [
+  ["Move", "Left / right walks. Tap up or down to sidestep, which dodges straight attacks. Hold up to jump, hold down to crouch."],
+  ["Attack", "Four buttons: 1 (□) left punch, 2 (△) right punch, 3 (✕) left kick, 4 (○) right kick. Chain them: 1,2 or 1,2,3 become strings."],
+  ["Block", "Hold back (away from your opponent). Highs miss crouching players, lows must be blocked crouching, mids must be blocked standing."],
+  ["Throw", "Press 1+3 or 2+4 together to grab a blocker. If you are grabbed, press 1 (for 1+3) or 2 (for 2+4) fast to break it."],
+  ["Specials", "Quick direction + button moves, like down-forward + 2 for a launcher. Launch your opponent, then hit them in the air for a juggle. See Move list."],
+  ["Rage", "Below 25% health you deal more damage and can use your Rage Art with 1+2 (once per round). It cannot be blocked."],
+  ["Heat", "Press 3+4 once per round to power up: more damage and chip damage on block, for 10 seconds."],
+];
+
+export function showHowTo(onBack: () => void): Screen {
+  const host = root();
+  host.replaceChildren();
+  const dim = el("div", "dim");
+  const panel = el("div", "panel wide");
+  host.append(dim, panel);
+  panel.append(el("h1", "", "HOW TO PLAY"));
+  panel.append(el("p", "sub", "Win two rounds. Empty your opponent's health bar before the timer runs out."));
+  const list = el("div", "howto");
+  for (const [h, t] of HOWTO) {
+    const row = el("div", "how");
+    row.append(el("b", "", h), el("span", "", t));
+    list.append(row);
+  }
+  panel.append(list);
+  const btn = el("button", "btn", "Got it");
+  btn.type = "button";
+  btn.addEventListener("click", onBack);
+  panel.append(el("div", "foot", "Keyboard: P1 WASD + F G V B, P2 arrows + U I J K. PS5 pad: D-pad/stick + □ △ ✕ ○. Phone: on-screen buttons."));
+  panel.append(btn);
+  const born = performance.now();
+  return {
+    update(nav) { if (performance.now() - born > 220 && (nav.confirm || nav.back)) onBack(); },
+    destroy() { host.replaceChildren(); },
+  };
 }

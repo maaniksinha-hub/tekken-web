@@ -1,5 +1,6 @@
 import { BUTTONS, type Button } from "./data/types";
 import { emptyInput, type InputFrame } from "./sim/game";
+import { touchState, touchVisible } from "./touch";
 
 export type Action = "left" | "right" | "up" | "down" | Button;
 export const ACTIONS: Action[] = ["left", "right", "up", "down", "lp", "rp", "lk", "rk"];
@@ -106,6 +107,12 @@ export function readInput(player: 0 | 1): InputFrame {
     x = x || padX;
     z = z || padZ;
     for (const b of BUTTONS) out.buttons[b] = out.buttons[b] || pressed(PAD_BUTTONS[b]);
+  }
+  if (player === 0 && touchVisible()) {
+    const t = touchState();
+    x = x || t.x;
+    z = z || t.z;
+    for (const b of BUTTONS) out.buttons[b] = out.buttons[b] || t.buttons[b];
   }
   out.x = Math.sign(x) as -1 | 0 | 1;
   out.z = Math.sign(z) as -1 | 0 | 1;

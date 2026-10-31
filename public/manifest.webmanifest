@@ -1,0 +1,18 @@
+{
+  "name": "Tekken Web",
+  "short_name": "Tekken Web",
+  "description": "A free 3D fighting game in your browser. Arcade, versus, online. Keyboard, PS5 pad or touch.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#0b0b10",
+  "theme_color": "#0b0b10",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

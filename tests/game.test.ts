@@ -71,3 +71,67 @@ describe("fight simulation", () => {
     expect(g.wins[0]).toBe(2);
   });
 });
+
+describe("heights and move list", () => {
+  const setup = () => {
+    const g = createGame(characters[0], characters[1]);
+    g.fighters[0].x = -0.5;
+    g.fighters[1].x = 0.5;
+    return g;
+  };
+  const crouchHold = (): InputFrame => ({ ...emptyInput(), z: -1 });
+  const once = (mk: () => InputFrame) => {
+    let first = true;
+    return () => (first ? ((first = false), mk()) : emptyInput());
+  };
+
+  it("a high attack whiffs on a crouching defender", () => {
+    const g = setup();
+    // Defender crouches for 10 frames first, then attacker jabs (high).
+    for (let n = 0; n < 10; n++) step(g, [emptyInput(), crouchHold()]);
+    expect(g.fighters[1].crouching).toBe(true);
+    for (let n = 0; n < 40; n++) step(g, [n === 0 ? press("lp") : emptyInput(), crouchHold()]);
+    expect(g.fighters[1].hp).toBe(characters[1].maxHp);
+  });
+
+  it("a low attack hits a standing blocker but is blocked by a crouch-blocker", () => {
+    const standing = setup();
+    run(40, once(() => press("rk", { z: -1 })), () => ({ ...emptyInput(), x: 1 }), standing);
+    expect(standing.fighters[1].hp).toBeLessThan(characters[1].maxHp); // Low sweep d+4
+
+    const crouched = setup();
+    run(40, once(() => press("rk", { z: -1 })), () => ({ ...emptyInput(), x: 1, z: -1 }), crouched);
+    expect(crouched.fighters[1].hp).toBe(characters[1].maxHp);
+  });
+
+  it("a mid beats a crouch-blocker", () => {
+    const g = setup();
+    run(40, once(() => press("lk")), () => ({ ...emptyInput(), x: 1, z: -1 }), g); // Front kick, mid
+    expect(g.fighters[1].hp).toBeLessThan(characters[1].maxHp);
+  });
+
+  it("d/f+2 triggers the special instead of the plain 2", () => {
+    const g = setup();
+    step(g, [press("rp", { x: 1, z: -1 }), emptyInput()]);
+    expect(g.fighters[0].activeMove?.name).toBe("Uppercut");
+  });
+
+  it("plain 2 stays a normal move", () => {
+    const g = setup();
+    step(g, [press("rp"), emptyInput()]);
+    expect(g.fighters[0].activeMove?.name).toBe("Straight");
+  });
+
+  it("f,f+1 dashes only after a real double tap, not while holding forward", () => {
+    const held = setup();
+    for (let n = 0; n < 6; n++) step(held, [{ ...emptyInput(), x: 1 }, emptyInput()]);
+    step(held, [press("lp", { x: 1 }), emptyInput()]);
+    expect(held.fighters[0].activeMove?.name).toBe("Jab");
+
+    const tapped = setup();
+    step(tapped, [{ ...emptyInput(), x: 1 }, emptyInput()]);
+    step(tapped, [emptyInput(), emptyInput()]);
+    step(tapped, [press("lp", { x: 1 }), emptyInput()]);
+    expect(tapped.fighters[0].activeMove?.name).toBe("Dash jab");
+  });
+});

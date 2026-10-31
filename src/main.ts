@@ -1,4 +1,5 @@
 import { characters } from "./data/characters";
+import { loadCustomCharacters } from "./data/loader";
 import type { CharacterData } from "./data/types";
 import { createCpu, type CpuPlayer, type Difficulty } from "./sim/ai";
 import {
@@ -40,9 +41,13 @@ let hintUntil = 0;
 let resultShown = false;
 
 function setScreen(next: Screen | null): void {
-  screen?.destroy();
+  // A new screen has already replaced the old one's DOM; only clean up when closing screens entirely.
+  const old = screen;
   screen = next;
-  if (!next) clearScreen();
+  if (!next) {
+    old?.destroy();
+    clearScreen();
+  }
 }
 
 // ---------- Screens ----------
@@ -260,6 +265,10 @@ addEventListener("keydown", unlockAudio);
 addEventListener("gamepadconnected", () => { lastPads = -1; });
 addEventListener("gamepaddisconnected", () => { lastPads = -1; });
 addEventListener("blur", () => { if (state === "fight" && mode !== "online") openPause(); });
+
+void loadCustomCharacters(import.meta.env.BASE_URL, new Set(characters.map((c) => c.id))).then((extra) => {
+  characters.push(...extra);
+});
 
 goMenu();
 

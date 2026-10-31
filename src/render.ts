@@ -1,7 +1,17 @@
-import {
-  Color3, Color4, DirectionalLight, DynamicTexture, Engine, FreeCamera, HemisphericLight, Mesh, MeshBuilder,
-  PointLight, Scene, ShadowGenerator, StandardMaterial, Vector3,
-} from "@babylonjs/core";
+import { Engine } from "@babylonjs/core/Engines/engine";
+import { Scene } from "@babylonjs/core/scene";
+import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera";
+import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
+import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
+import { PointLight } from "@babylonjs/core/Lights/pointLight";
+import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
+import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { GameEvent, GameState } from "./sim/game";
 import { STAGE_HALF_DEPTH, STAGE_HALF_WIDTH } from "./sim/game";
 import type { CharacterData } from "./data/types";
@@ -199,7 +209,9 @@ export class Renderer {
     const [a, b] = game.fighters;
     const mid = (a.x + b.x) / 2;
     const gap = Math.abs(a.x - b.x);
-    const dist = 7.2 + gap * 0.55;
+    // The field of view is vertical, so narrow (portrait) screens need the camera further back to keep both fighters in frame.
+    const aspect = this.engine.getAspectRatio(this.cam);
+    const dist = (7.2 + gap * 0.55) * Math.max(1, 1.75 / aspect);
     const k = Math.min(1, dt * 6);
     this.camPos.x = lerp(this.camPos.x, mid, k);
     this.camPos.y = lerp(this.camPos.y, 2.0 + gap * 0.05, k);

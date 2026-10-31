@@ -1,4 +1,7 @@
-import { TransformNode, type AnimationGroup, type AbstractMesh, type Scene } from "@babylonjs/core";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import type { AnimationGroup } from "@babylonjs/core/Animations/animationGroup";
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import type { Scene } from "@babylonjs/core/scene";
 import type { Fighter } from "./sim/game";
 import type { CharacterData } from "./data/types";
 import type { FighterRig } from "./rig";

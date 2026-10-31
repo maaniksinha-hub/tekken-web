@@ -1,4 +1,5 @@
 import { BUTTONS, type Button, type MoveData } from "../data/types";
+import { parseNotation } from "./inputs";
 import { emptyInput, inRage, type Fighter, type GameState, type InputFrame } from "./game";
 
 /**
@@ -62,30 +63,56 @@ export function createCpu(side: 0 | 1, difficulty: Difficulty = "normal", seed =
     return ms.reduce((a, m) => Math.max(a, m.reach), 0);
   };
 
-  /** Scripts for a chosen attack. Directions are relative to facing and converted here. */
+  /** Turn a notation like "d/f+2" or "f,f+1" into controller frames (directions relative to facing). */
+  function fromNotation(f: Fighter, notation: string): InputFrame[] {
+    const out: InputFrame[] = [];
+    parseNotation(notation).forEach((st, i) => {
+      if (i > 0) out.push({ x: 0, z: 0, buttons: btn() }); // release between steps so "f,f" is a real double tap
+      const d = st.dir ?? 5;
+      const rel = ((d - 1) % 3) - 1; // numpad column: 1,4,7 back; 2,5,8 centre; 3,6,9 forward
+      const vert = Math.floor((d - 1) / 3) - 1; // numpad row: 1-3 down, 4-6 centre, 7-9 up
+      out.push({ x: dir(f, rel as -1 | 0 | 1), z: vert as -1 | 0 | 1, buttons: btn(...st.buttons) });
+    });
+    return out;
+  }
+
+  const gap = (n: number): InputFrame[] => Array.from({ length: n }, () => ({ x: 0 as const, z: 0 as const, buttons: btn() }));
+
+  /** Scripts for a chosen attack, built from the character's own data so every fighter works. */
   function script(f: Fighter, kind: string): InputFrame[] {
-    const mk = (rel: -1 | 0 | 1, z: -1 | 0 | 1, ...bs: Button[]): InputFrame => ({ x: dir(f, rel), z, buttons: btn(...bs) });
+    const mk = (...bs: Button[]): InputFrame => ({ x: 0, z: 0, buttons: btn(...bs) });
+    const specials = f.char.specials;
     switch (kind) {
       case "lp": case "rp": case "lk": case "rk":
-        return [mk(0, 0, kind as Button)];
-      case "string": // 1, then 2 shortly after (follow-ups only fire if the first connected)
-        return [mk(0, 0, "lp"), ...Array(13).fill(mk(0, 0)), mk(0, 0, "rp")];
-      case "special0": // d/f + 2 (KAI uppercut) / d/f + 1 (RIN palm)
-        return [mk(1, -1, f.char.id === "rin" ? "lp" : "rp")];
-      case "low":
-        return [mk(0, -1, f.char.id === "rin" ? "lk" : "rk")];
-      case "dash":
-        return [mk(1, 0), mk(0, 0), mk(1, 0, f.char.id === "rin" ? "rp" : "lp")];
-      case "throw":
-        return [mk(0, 0, "lp", "lk")];
-      case "throw2":
-        return [mk(0, 0, "rp", "rk")];
-      case "rage":
-        return [mk(0, 0, "lp", "rp")];
-      case "heat":
-        return [mk(0, 0, "lk", "rk")];
-      default:
-        return [mk(0, 0)];
+        return [mk(kind as Button)];
+      case "string": {
+        // A normal that has follow-ups: press it, then each follow-up shortly after (only fires if it connected).
+        const starters = BUTTONS.filter((b) => f.char.moves[b].next?.length);
+        if (starters.length === 0) return [mk("lp")];
+        const first = starters[Math.floor(rand() * starters.length)];
+        const out: InputFrame[] = [mk(first)];
+        let m: MoveData = f.char.moves[first];
+        while (m.next?.length) {
+          const n = m.next[0];
+          out.push(...gap(m.startup + m.active - 2), mk(n.button));
+          m = n.move;
+        }
+        return out;
+      }
+      case "special": return fromNotation(f, specials[Math.floor(rand() * specials.length)].notation);
+      case "low": {
+        const low = specials.filter((s) => s.move.height === "low");
+        return low.length ? fromNotation(f, low[0].notation) : [mk("rk")];
+      }
+      case "dash": {
+        const d = specials.filter((s) => s.notation.startsWith("f,f"));
+        return d.length ? fromNotation(f, d[0].notation) : [mk("lp")];
+      }
+      case "throw": return [mk("lp", "lk")];
+      case "throw2": return [mk("rp", "rk")];
+      case "rage": return [mk("lp", "rp")];
+      case "heat": return [mk("lk", "rk")];
+      default: return [mk()];
     }
   }
 
@@ -142,7 +169,7 @@ export function createCpu(side: 0 | 1, difficulty: Difficulty = "normal", seed =
         const r = rand();
         let kind: string;
         if (r < p.variety * 0.25) kind = "string";
-        else if (r < p.variety * 0.45) kind = "special0";
+        else if (r < p.variety * 0.45) kind = "special";
         else if (r < p.variety * 0.6) kind = "low";
         else if (r < p.variety * 0.7) kind = "dash";
         else kind = BUTTONS[Math.floor(rand() * 4)];

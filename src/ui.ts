@@ -68,6 +68,7 @@ export function showMenu(o: MenuOptions): Screen & { refresh(): void } {
       li.setAttribute("role", "menuitem");
       li.append(el("span", "", it.label()));
       if (it.hint) li.append(el("small", "", it.hint()));
+      if (i === index) queueMicrotask(() => li.scrollIntoView?.({ block: "nearest" }));
       li.addEventListener("click", () => { index = i; activate(); });
       li.addEventListener("mousemove", () => { if (index !== i) { index = i; render(); } });
       ul.append(li);
@@ -133,10 +134,14 @@ export function showSelect(o: SelectOptions): Screen {
   const n = o.characters.length;
   const cursor: [number, number] = [0, Math.min(1, n - 1)];
   const locked: [number | null, number | null] = [null, null];
-  let cpuTimer = 0;
+  let cpuAt = 0; // when the CPU locks in its pick (real time, so slow devices are not slowed further)
   let finished = false;
+  let shown = "";
 
   const render = () => {
+    const sig = `${cursor[0]}|${cursor[1]}|${locked[0]}|${locked[1]}`;
+    if (sig === shown) return; // only redraw on change, so mouse clicks land on a stable element
+    shown = sig;
     sub.textContent = o.mode === "cpu"
       ? (locked[0] === null ? "Player 1: pick a fighter. The CPU chooses after you." : "CPU is choosing...")
       : "Player 1 (blue) and Player 2 (red): pick a fighter each.";
@@ -170,7 +175,7 @@ export function showSelect(o: SelectOptions): Screen {
     uiSelect();
     if (o.mode === "cpu" && p === 0) {
       cursor[1] = Math.floor(Math.random() * n); // UI only; never used by the sim
-      cpuTimer = 70;
+      cpuAt = performance.now() + 900;
     }
     if (locked[0] !== null && locked[1] !== null) finish();
   };
@@ -195,7 +200,7 @@ export function showSelect(o: SelectOptions): Screen {
       // Menu-level pad nav also works for player 1's pad before the select edges kick in.
       step(0, s0);
       if (o.mode === "local") step(1, s1);
-      else if (locked[0] !== null && locked[1] === null && cpuTimer > 0 && --cpuTimer === 0) { locked[1] = cursor[1]; finish(); }
+      else if (locked[0] !== null && locked[1] === null && cpuAt > 0 && performance.now() >= cpuAt) { locked[1] = cursor[1]; finish(); }
       render();
     },
     destroy() { host.replaceChildren(); },

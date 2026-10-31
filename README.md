@@ -1,56 +1,70 @@
 # Tekken Web
 
-A browser-based 3D fighting game inspired by Tekken 8's mechanics (4-limb attacks, sidestep,
-block-by-holding-back, best-of-3 rounds). Built with Babylon.js + TypeScript. Local 2-player,
-keyboard and PS5 (DualSense) controllers. Original placeholder characters; custom characters
-are data-driven.
+A browser-based 3D fighting game inspired by Tekken 8's mechanics. Two players on one screen, versus the
+CPU, or online over a direct browser-to-browser link. PS5 (DualSense) controllers are supported, and you
+can add your own characters without touching code.
 
-## Run
-```bash
-npm install
-npm run dev      # http://localhost:5173
-npm test         # simulation tests
-npm run build    # production build in dist/
-```
+**Play:** https://maaniksinha-hub.github.io/tekken-web/
+
+Everything is original and free: characters, stage and sounds are generated in code, the game is hosted on
+GitHub Pages, and nothing needs an account or a server.
+
+## Features
+- **Modes:** local 2-player, versus CPU (easy / normal / hard), online versus (WebRTC with rollback netcode).
+- **Tekken-style mechanics:** four limb buttons (1 2 3 4), sidestep, crouch, jump, blocking by holding back,
+  high / mid / low attacks, throws and throw breaks, strings (`1,2,3`), launchers and juggles, wall splat,
+  Rage (Rage Art), Heat (Heat Burst, chip damage), best-of-3 rounds.
+- **Move list:** notation-based specials such as `d/f+2` and `f,f+1`, with an input buffer.
+- **Presentation:** articulated fighters, stage with shadows, tracking camera, hit sparks, screen shake, KO
+  slow-motion, combo counter, synthesised sound.
+- **Controls:** keyboard (remappable), PS5 / PS4 / standard gamepads, menu navigation by pad.
+- **Custom characters:** drop in a JSON file (and optionally a `.glb` model). See [CHARACTERS.md](CHARACTERS.md)
+  and [ASSETS.md](ASSETS.md).
 
 ## Controls
-| | Keyboard | PS5 pad |
+| | Keyboard (defaults) | PS5 pad |
 |---|---|---|
-| Move | P1 `A`/`D`, P2 `←`/`→` | D-pad or left stick |
-| Sidestep | P1 `W`/`S`, P2 `↑`/`↓` | D-pad / stick up-down |
+| Move / sidestep | P1 `A` `D` / tap `W` `S`; P2 `←` `→` / tap `↑` `↓` | D-pad or left stick |
+| Jump / crouch | hold up / hold down | same |
 | Attacks 1 2 3 4 | P1 `F G V B`, P2 `U I J K` | □ △ ✕ ○ |
-| Block | hold back (away from opponent) | same |
-| Crouch | hold down (a quick tap is a sidestep) | same |
-| Specials | `d/f+2`, `d+4`, `f,f+1` (KAI) / `d/f+1`, `d+3`, `f,f+2` (RIN) | same |
-| Restart match | `R` | Options |
+| Block | hold back (away from the opponent) | same |
+| Throw | `1+3` or `2+4` (break with `1` or `2`) | same |
+| Rage Art | `1+2` below 25% health, once per round | same |
+| Heat | `3+4`, once per round | same |
+| Pause | `Esc` | Options |
 
-Pad 1 controls player 1, pad 2 controls player 2. Keyboard works alongside. Connect a pad via
-USB or Bluetooth and press any button once so the browser detects it (Chrome/Edge recommended).
+Pad 1 controls player 1 and pad 2 controls player 2; the keyboard always works too. Connect a pad by USB or
+Bluetooth and press a button so the browser detects it (Chrome or Edge recommended). Keys can be changed in
+**Controls**. The full move list is in the game (**Move list**).
 
-## Architecture
-- `src/sim/game.ts` - deterministic 60 fps simulation. No rendering, DOM, randomness or wall-clock
-  time, so it is testable and ready for replays and rollback netcode.
-- `src/data/` - characters and moves as plain data (`CharacterData`).
-- `src/render.ts` - Babylon.js presentation only; reads sim state, never changes it.
-- `src/input.ts` - keyboard and Gamepad API to `InputFrame`.
+## Online play
+No server is involved: one player hosts and sends a short code, the other pastes it and sends a reply code
+back (any chat app works). The game then runs peer to peer with GGPO-style rollback, so it stays responsive
+on normal connections. Strict firewalls or VPNs can block direct connections.
 
-## Attack heights
-Each move is `high`, `mid` or `low`. Highs whiff against a crouching opponent. Lows must be blocked
-crouching (hold back + down); mids must be blocked standing.
+## Develop
+```bash
+npm install
+npm run dev                 # http://localhost:5173
+npm test                    # 50+ simulation, AI, character and netcode tests
+npm run validate-characters # check public/characters/*.json
+npm run build               # production build in dist/
+```
+Pushes to `main` build, test and deploy to GitHub Pages (`.github/workflows/deploy.yml`); pull requests run CI.
 
-## Adding a character
-Add an entry to `src/data/characters.ts` (stats, four moves, colours). To use a real 3D model
-instead of the placeholder body, see [ASSETS.md](ASSETS.md).
+## How it is built
+- `src/sim/game.ts` - the deterministic 60 fps fight simulation. No rendering, DOM, randomness or wall-clock time,
+  so the same inputs always give the same result. This is what makes tests, the CPU and rollback possible.
+- `src/sim/inputs.ts` - input buffer and Tekken notation parser. `src/sim/ai.ts` - CPU opponent.
+- `src/net/rollback.ts` - rollback session with desync detection. `src/net/rtc.ts` - WebRTC link.
+- `src/data/` - characters and moves as plain data, plus validation and the JSON loader.
+- `src/render.ts`, `src/rig.ts`, `src/rig-glb.ts` - Babylon.js presentation only; they read state and never change it.
+- `src/input.ts`, `src/ui.ts`, `src/online-ui.ts`, `src/main.ts` - input, screens and the app loop.
 
-## Roadmap
-1. [x] Movement, sidestep, 4 attacks, blocking, rounds, 2 players, PS5 pad
-2. [x] Crouch, high/mid/low attacks, input buffer + notation move list (`d/f+2`, `f,f+1`)
-3. [ ] Jump, throws, string followups (`1,2,3`), combos and juggles
-4. [ ] Rage, Heat, wall and juggle systems
-5. [ ] GLB character loading + character select
-6. [ ] AI opponent
-7. [ ] Online play (WebRTC rollback)
+## Not included (yet)
+Touch controls (phones work with a Bluetooth pad), more stages, replays, ranked online or matchmaking, and
+character models: bring your own free CC0 models (see [ASSETS.md](ASSETS.md)).
 
 ## Legal
-Tekken is a trademark of Bandai Namco. This is an unaffiliated fan project that copies game
-*mechanics* only. Do not add Tekken characters, models, audio or other copyrighted assets.
+Tekken is a trademark of Bandai Namco. This is an unaffiliated fan project that uses game *mechanics* only. Do
+not add Tekken characters, models, audio or other copyrighted assets. See [CREDITS.md](CREDITS.md).

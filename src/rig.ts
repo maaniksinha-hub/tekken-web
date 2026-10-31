@@ -1,4 +1,10 @@
-import { Color3, MeshBuilder, StandardMaterial, TransformNode, Vector3, type Mesh, type Scene } from "@babylonjs/core";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh";
+import type { Scene } from "@babylonjs/core/scene";
 import type { Fighter } from "./sim/game";
 import { inHeat, inRage } from "./sim/game";
 import type { CharacterData } from "./data/types";

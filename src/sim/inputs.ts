@@ -74,6 +74,12 @@ export class InputBuffer {
     this.frames = [];
   }
 
+  clone(): InputBuffer {
+    const c = new InputBuffer();
+    c.frames = this.frames.map((f) => ({ dir: f.dir, pressed: [...f.pressed], held: [...f.held] }));
+    return c;
+  }
+
   /** Does the most recent input complete `steps`? */
   matches(steps: Step[]): boolean {
     if (steps.length === 0) return false;

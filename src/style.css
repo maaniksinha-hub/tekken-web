@@ -1,0 +1,85 @@
+:root { --gold: #f5c542; --blue: #3b6fd4; --red: #d4453b; --ink: #0b0b10; --panel: rgba(12, 12, 20, 0.88); }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--ink); overflow: hidden; font-family: system-ui, "Segoe UI", sans-serif; color: #fff; }
+#game { width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
+[hidden] { display: none !important; }
+
+/* HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+.top { display: flex; align-items: flex-start; gap: 16px; padding: 14px 24px; }
+.side { flex: 1; min-width: 0; }
+.side.right { text-align: right; }
+.nameline { display: flex; justify-content: space-between; font-weight: 700; letter-spacing: 2px; margin-bottom: 4px; }
+.side.right .nameline { flex-direction: row; }
+.pips { letter-spacing: 4px; color: var(--gold); }
+.bar { position: relative; height: 22px; background: #23232d; border: 2px solid #fff; overflow: hidden; }
+.bar.heat { height: 8px; margin-top: 4px; border-width: 1px; border-color: #888; }
+.bar .fill, .bar .trail { position: absolute; inset: 0 auto 0 0; }
+.side.right .bar .fill, .side.right .bar .trail { inset: 0 0 0 auto; }
+.hp .fill { background: linear-gradient(#ffd75a, #f5a623); transition: width 0.08s; }
+.hp .trail { background: #c0392b; transition: width 0.6s ease-out 0.25s; }
+.heat .fill { background: #ff7a1a; }
+.rage .hp .fill { animation: rage 0.5s infinite alternate; }
+@keyframes rage { to { background: #ff3b30; } }
+.tag { height: 18px; font-size: 12px; font-weight: 800; letter-spacing: 2px; color: #ff6b4a; margin-top: 2px; }
+#timer { font-size: 38px; font-weight: 800; width: 76px; text-align: center; text-shadow: 0 2px 8px #000; padding-top: 8px; }
+.combo { position: absolute; top: 120px; left: 28px; font-size: 40px; font-weight: 900; font-style: italic; color: var(--gold); text-shadow: 0 3px 10px #000; opacity: 0; transition: opacity 0.2s; }
+.combo.right { left: auto; right: 28px; text-align: right; }
+.combo.on { opacity: 1; }
+#banner { position: absolute; top: 36%; width: 100%; text-align: center; font-size: clamp(36px, 8vw, 84px); font-weight: 900; font-style: italic; text-shadow: 0 4px 18px #000; letter-spacing: 2px; }
+#hint { position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 12px; opacity: 0.55; }
+#padstatus { position: fixed; right: 12px; bottom: 10px; font-size: 12px; opacity: 0.7; pointer-events: none; }
+
+/* Screens */
+#screen { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; }
+#screen > * { pointer-events: auto; }
+#screen:empty { display: none; }
+.dim { background: radial-gradient(ellipse at center, rgba(8,8,16,0.55), rgba(4,4,10,0.92)); position: fixed; inset: 0; z-index: -1; }
+.panel { width: min(560px, 92vw); max-height: 92vh; overflow: auto; background: var(--panel); border: 2px solid #3a3a52; border-radius: 6px; padding: 26px 30px; box-shadow: 0 20px 60px #000a; }
+.panel.wide { width: min(980px, 96vw); }
+h1 { margin: 0 0 4px; font-size: 40px; font-style: italic; letter-spacing: 3px; }
+h1 span { color: var(--gold); }
+h2 { margin: 0 0 4px; font-size: 22px; letter-spacing: 2px; }
+.sub { margin: 0 0 18px; opacity: 0.65; font-size: 14px; }
+ul.menu { list-style: none; margin: 0; padding: 0; }
+ul.menu li { padding: 11px 14px; margin: 4px 0; border: 2px solid transparent; border-radius: 4px; font-size: 18px; font-weight: 600; letter-spacing: 1px; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
+ul.menu li.sel { border-color: var(--gold); background: rgba(245, 197, 66, 0.12); }
+ul.menu li.off { opacity: 0.4; }
+ul.menu li small { opacity: 0.6; font-weight: 400; font-size: 13px; align-self: center; }
+.foot { margin-top: 16px; font-size: 12px; opacity: 0.55; line-height: 1.5; }
+button.btn { background: #23232d; color: #fff; border: 2px solid #4a4a64; border-radius: 4px; padding: 8px 14px; font: inherit; cursor: pointer; }
+button.btn:hover, button.btn:focus-visible { border-color: var(--gold); outline: none; }
+textarea { width: 100%; height: 92px; background: #14141c; color: #cfe; border: 2px solid #3a3a52; border-radius: 4px; font: 11px/1.3 ui-monospace, monospace; padding: 8px; resize: vertical; }
+.row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; align-items: center; }
+.status { font-size: 14px; min-height: 20px; margin: 6px 0; color: #9fd; }
+.status.err { color: #ff8a80; }
+
+/* Character select */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 14px 0; }
+.card { position: relative; border: 3px solid #3a3a52; border-radius: 6px; padding: 14px 10px; text-align: center; background: #14141c; cursor: pointer; }
+.card .swatch { height: 70px; border-radius: 4px; margin-bottom: 8px; }
+.card .nm { font-weight: 800; letter-spacing: 2px; }
+.card .st { font-size: 12px; opacity: 0.6; }
+.card.p0 { border-color: var(--blue); box-shadow: 0 0 16px #3b6fd488; }
+.card.p1 { border-color: var(--red); box-shadow: 0 0 16px #d4453b88; }
+.card.p0.p1 { border-image: linear-gradient(90deg, var(--blue), var(--red)) 1; }
+.card .badge { position: absolute; top: 4px; font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 3px; }
+.card .badge.b0 { left: 4px; background: var(--blue); }
+.card .badge.b1 { right: 4px; background: var(--red); }
+.picked { font-size: 15px; margin-top: 6px; }
+
+/* Move list */
+table.moves { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.moves th, table.moves td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #2a2a3c; }
+table.moves th { opacity: 0.6; font-weight: 600; }
+.h-high { color: #ff9f6b; } .h-mid { color: #ffe27a; } .h-low { color: #7ad3ff; }
+kbd { background: #2a2a3c; border: 1px solid #4a4a64; border-radius: 3px; padding: 1px 6px; font: 12px ui-monospace, monospace; }
+
+@media (max-width: 640px) {
+  .top { padding: 8px 10px; gap: 8px; }
+  #timer { font-size: 28px; width: 52px; }
+  ul.menu li { font-size: 16px; }
+  h1 { font-size: 30px; }
+  .combo { font-size: 28px; top: 100px; }
+}
+@media (prefers-reduced-motion: reduce) { .rage .hp .fill { animation: none; } }

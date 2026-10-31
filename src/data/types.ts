@@ -54,5 +54,9 @@ export interface CharacterData {
     model: "procedural" | string;
     color: string;
     accent: string;
+    /** Extra yaw (radians) for GLB models that do not face +z. */
+    yaw?: number;
+    /** Optional height in world units the model is scaled to (default 1.85). */
+    height?: number;
   };
 }

@@ -227,3 +227,14 @@ describe("snapshot", () => {
     expect(strip(replay)).toBe(strip(g));
   });
 });
+
+describe("trades", () => {
+  it("two attacks landing on the same frame both connect without crashing", () => {
+    const g = createGame(KAI, KAI); // identical startup, so both jabs connect on the same frame
+    g.fighters[0].x = -0.5;
+    g.fighters[1].x = 0.5;
+    frames(g, 40, tap(() => inp({ b: ["lp"] })), tap(() => inp({ b: ["lp"] })));
+    expect(g.fighters[0].hp).toBe(KAI.maxHp - KAI.moves.lp.damage);
+    expect(g.fighters[1].hp).toBe(KAI.maxHp - KAI.moves.lp.damage);
+  });
+});

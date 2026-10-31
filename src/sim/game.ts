@@ -435,8 +435,11 @@ function resolveHits(g: GameState, inputs: [InputFrame, InputFrame]): void {
     guards(a, inputs[0], b.activeMove),
   ];
 
+  // Capture both moves first: applying one hit clears the defender's move, which would break trades.
+  const moves: [MoveData | null, MoveData | null] = [a.activeMove, b.activeMove];
+
   const apply = (atk: Fighter, def: Fighter, blocked: boolean, by: 0 | 1) => {
-    const m = atk.activeMove as MoveData;
+    const m = moves[by] as MoveData;
     atk.hitDone = true;
 
     if (isThrow(m)) {

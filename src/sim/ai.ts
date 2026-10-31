@@ -99,6 +99,10 @@ export function createCpu(side: 0 | 1, difficulty: Difficulty = "normal", seed =
         }
         return out;
       }
+      case "launcher": {
+        const l = specials.find((x) => x.move.launch);
+        return l ? fromNotation(f, l.notation) : [mk("lk")];
+      }
       case "special": return fromNotation(f, specials[Math.floor(rand() * specials.length)].notation);
       case "low": {
         const low = specials.filter((s) => s.move.height === "low");
@@ -146,6 +150,17 @@ export function createCpu(side: 0 | 1, difficulty: Difficulty = "normal", seed =
         else return { x: dir(me, -1), z: mode === "crouchBlock" ? -1 : 0, buttons: idle.buttons };
       }
 
+      // Punish: the opponent is in the recovery of a move that missed or was blocked, and we are in range.
+      const fm = foe.activeMove;
+      const reach = reachOf(me);
+      const recovering = foe.state === "attack" && fm && foe.frame >= fm.startup + fm.active && dist < reach - 0.1;
+      const airborneFoe = foe.state === "jump" && dist < 2.1;
+      if ((recovering || airborneFoe) && (me.state === "idle" || me.state === "walk") && rand() < p.block * 0.55) {
+        const fast = BUTTONS.reduce((a, b) => (me.char.moves[b].startup < me.char.moves[a].startup && me.char.moves[b].reach >= dist ? b : a), "lp" as Button);
+        queue.push(...script(me, airborneFoe ? "launcher" : fast));
+        return idle;
+      }
+
       if (!tick) {
         const m = me.state === "attack" ? 0 : mode === "retreat" ? -1 : mode === "approach" && dist > 1.4 ? 1 : 0;
         return { x: dir(me, m as -1 | 0 | 1), z: 0, buttons: idle.buttons };
@@ -158,7 +173,6 @@ export function createCpu(side: 0 | 1, difficulty: Difficulty = "normal", seed =
       if (inRage(me) && !me.rageArtUsed && dist < 1.8) { queue.push(...script(me, "rage")); return idle; }
       if (!me.heatUsed && me.hp / me.char.maxHp < 0.7 && dist < 1.6 && rand() < 0.2) { queue.push(...script(me, "heat")); return idle; }
 
-      const reach = reachOf(me);
       if (dist > reach + 0.3) { mode = "approach"; modeFrames = 4; return { x: dir(me, 1), z: 0, buttons: idle.buttons }; }
 
       if (foe.state === "blockstun" && rand() < 0.5 * p.variety + 0.2 && dist < 1.25) {

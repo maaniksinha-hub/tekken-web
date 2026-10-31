@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Browser-based 3D fighting game inspired by Tekken 8 mechanics. 2 players, PS5 controller support." />
+    <meta name="theme-color" content="#0b0b10" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tekken Web: free 3D fighting game in your browser" />
+    <meta property="og:description" content="Arcade ladder, versus, training and online play. 6 fighters, juggles, throws, Rage and Heat. Keyboard, PS5 pad or touch. No install." />
+    <meta property="og:image" content="https://maaniksinha-hub.github.io/tekken-web/og.png" />
+    <meta property="og:url" content="https://maaniksinha-hub.github.io/tekken-web/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Tekken Web: free 3D fighting game in your browser" />
+    <meta name="twitter:image" content="https://maaniksinha-hub.github.io/tekken-web/og.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <title>Tekken Web</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
@@ -28,9 +40,11 @@
       <div class="combo" id="combo0"></div>
       <div class="combo right" id="combo1"></div>
       <div id="banner"></div>
+      <div id="training" hidden></div>
       <div id="hint"></div>
     </div>
     <div id="padstatus" role="status" aria-live="polite"></div>
+    <button id="fs" class="fs" type="button" title="Fullscreen" aria-label="Toggle fullscreen" hidden>⛶</button>
     <div id="screen"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

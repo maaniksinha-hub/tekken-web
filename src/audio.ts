@@ -1,4 +1,5 @@
 import type { GameEvent } from "./sim/game";
+import { onSettingsChange, settings } from "./settings";
 
 /**
  * Sound effects synthesised with the Web Audio API: no files, no licences, no downloads.
@@ -6,6 +7,7 @@ import type { GameEvent } from "./sim/game";
  */
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
+let sfxBus: GainNode | null = null;
 let muted = false;
 let noiseBuf: AudioBuffer | null = null;
 
@@ -20,6 +22,10 @@ export function unlock(): void {
   master = ctx.createGain();
   master.gain.value = muted ? 0 : 0.5;
   master.connect(ctx.destination);
+  sfxBus = ctx.createGain();
+  sfxBus.gain.value = settings.sfx;
+  sfxBus.connect(master);
+  onSettingsChange(() => { if (sfxBus) sfxBus.gain.value = settings.sfx; });
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; // audio only; never used by the sim
@@ -40,7 +46,7 @@ function tone(freq: number, dur: number, type: OscillatorType, gain: number, sli
   if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
   g.gain.setValueAtTime(gain, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(master);
+  o.connect(g).connect(sfxBus ?? master);
   o.start(t);
   o.stop(t + dur + 0.02);
 }
@@ -57,7 +63,7 @@ function noise(dur: number, gain: number, freq: number, q = 1, delay = 0): void 
   const g = ctx.createGain();
   g.gain.setValueAtTime(gain, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.connect(f).connect(g).connect(master);
+  s.connect(f).connect(g).connect(sfxBus ?? master);
   s.start(t);
   s.stop(t + dur + 0.02);
 }
@@ -83,3 +89,8 @@ export function whoosh(): void { noise(0.1, 0.12, 2200, 1.2); }
 export function uiMove(): void { tone(660, 0.04, "square", 0.08); }
 export function uiSelect(): void { tone(440, 0.06, "square", 0.12); tone(880, 0.1, "square", 0.12, undefined, 0.05); }
 export function bell(): void { tone(880, 0.9, "sine", 0.3); tone(1320, 0.7, "sine", 0.15); }
+
+/** The master node, so music and speech can share the mute switch. */
+export function audioContext(): { ctx: AudioContext; master: GainNode } | null {
+  return ctx && master ? { ctx, master } : null;
+}

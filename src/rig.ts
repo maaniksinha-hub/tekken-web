@@ -17,6 +17,8 @@ import type { CharacterData } from "./data/types";
 export interface FighterRig {
   root: TransformNode;
   meshes: Mesh[];
+  /** The mesh at the tip of the limb that performs `button` (for motion trails). Procedural rigs only. */
+  tip?(button: "lp" | "rp" | "lk" | "rk"): Mesh | null;
   /** Pose from sim state. `t` is real seconds (for idle sway / walk cycle). */
   pose(f: Fighter, t: number): void;
   dispose(): void;
@@ -82,8 +84,8 @@ export function buildProceduralRig(scene: Scene, char: CharacterData): FighterRi
     limbMesh(hip, 0.46, 0.085, cloth);
     const knee = node("knee", hip, new Vector3(0, -0.45, 0));
     limbMesh(knee, 0.44, 0.07, cloth);
-    attach(MeshBuilder.CreateBox("foot", { width: 0.12, height: 0.07, depth: 0.26 }, scene), knee, new Vector3(0, -0.44, 0.06), dark);
-    return { hip, knee };
+    const foot = attach(MeshBuilder.CreateBox("foot", { width: 0.12, height: 0.07, depth: 0.26 }, scene), knee, new Vector3(0, -0.44, 0.06), dark);
+    return { hip, knee, foot };
   };
   const l = leg(1), r = leg(-1);
 
@@ -99,8 +101,8 @@ export function buildProceduralRig(scene: Scene, char: CharacterData): FighterRi
     limbMesh(sh, 0.32, 0.06, cloth);
     const el = node("elbow", sh, new Vector3(0, -0.31, 0));
     limbMesh(el, 0.3, 0.05, skin);
-    attach(MeshBuilder.CreateSphere("fist", { diameter: 0.13 }, scene), el, new Vector3(0, -0.32, 0), trim);
-    return { sh, el };
+    const fist = attach(MeshBuilder.CreateSphere("fist", { diameter: 0.13 }, scene), el, new Vector3(0, -0.32, 0), trim);
+    return { sh, el, fist };
   };
   const la = arm(1), ra = arm(-1);
 
@@ -124,6 +126,9 @@ export function buildProceduralRig(scene: Scene, char: CharacterData): FighterRi
   return {
     root,
     meshes,
+    tip(button) {
+      return { lp: la.fist, rp: ra.fist, lk: l.foot, rk: r.foot }[button];
+    },
     pose(f, t) {
       reset();
       const sway = Math.sin(t * 2.4) * 0.025;
@@ -230,7 +235,12 @@ function poseAttack(j: Joints, f: Fighter): void {
   if (!m || !f.move) return;
   const s = m.startup, a = m.active, r = Math.max(1, m.recovery);
   const fr = f.frame;
-  const e = fr < s ? ease(fr / s) : fr < s + a ? 1 : 1 - ease((fr - s - a) / r);
+  // Wind-up (pull back), thrust, hold, then recover. The small negative wind-up is what sells the hit.
+  const windEnd = s * 0.45;
+  const e = fr < windEnd ? -0.28 * ease(fr / windEnd)
+    : fr < s ? -0.28 + 1.28 * ease((fr - windEnd) / (s - windEnd))
+    : fr < s + a ? 1
+    : 1 - ease((fr - s - a) / r);
 
   if (m.throw) {
     j.lSh.rotation.x = -1.5 * e - 0.4; j.rSh.rotation.x = -1.5 * e - 0.4;

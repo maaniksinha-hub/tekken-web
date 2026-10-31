@@ -100,13 +100,14 @@ export class Renderer {
       v.root.rotation.x = 0;
 
       (Object.keys(v.limbs) as Button[]).forEach((b) => v.limbs[b].position.copyFrom(LIMB_REST[b]));
-      if (f.state === "attack" && f.move) {
-        const m = f.char.moves[f.move];
+      if (f.state === "attack" && f.move && f.activeMove) {
+        const m = f.activeMove;
         const t = f.frame < m.startup + m.active ? Math.min(1, f.frame / m.startup) : 1 - (f.frame - m.startup - m.active) / m.recovery;
         const limb = v.limbs[f.move];
         limb.position.z += t * (m.reach - 0.6);
         if (f.move === "lk" || f.move === "rk") limb.position.y += t * 0.5;
       }
+      v.root.scaling.y = f.crouching ? 0.65 : 1;
       if (f.state === "hitstun") v.root.rotation.x = -0.25;
       if (f.state === "ko") {
         v.root.rotation.x = -Math.PI / 2;

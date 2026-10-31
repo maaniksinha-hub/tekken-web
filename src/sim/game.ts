@@ -1,4 +1,5 @@
-import { BUTTONS, type Button, type CharacterData } from "../data/types";
+import { BUTTONS, type Button, type CharacterData, type MoveData } from "../data/types";
+import { InputBuffer, parseNotation, toDir, type Step } from "./inputs";
 
 /**
  * Deterministic fight simulation. No rendering, no DOM, no Math.random, no
@@ -13,6 +14,16 @@ export const HIT_DEPTH = 0.6; // sidestepping further than this dodges a hit
 export const ROUND_FRAMES = 60 * 60;
 export const ROUND_END_FRAMES = 150;
 export const ROUNDS_TO_WIN = 2;
+/** Holding down this many frames crouches; a shorter tap is a sidestep. */
+export const CROUCH_HOLD_FRAMES = 6;
+
+// Parsed once; notation strings live in character data.
+const parsedCache = new Map<string, Step[]>();
+const steps = (n: string) => {
+  let v = parsedCache.get(n);
+  if (!v) parsedCache.set(n, (v = parseNotation(n)));
+  return v;
+};
 
 export interface InputFrame {
   x: -1 | 0 | 1; // screen space: -1 left, +1 right
@@ -36,7 +47,11 @@ export interface Fighter {
   facing: 1 | -1;
   state: FighterState;
   frame: number;
-  move: Button | null;
+  move: Button | null; // button that started the move (drives which limb animates)
+  activeMove: MoveData | null;
+  crouching: boolean;
+  holdDown: number;
+  buffer: InputBuffer;
   hitDone: boolean;
   stun: number;
   prev: Record<Button, boolean>;
@@ -67,6 +82,10 @@ function makeFighter(char: CharacterData, side: 0 | 1): Fighter {
     state: "idle",
     frame: 0,
     move: null,
+    activeMove: null,
+    crouching: false,
+    holdDown: 0,
+    buffer: new InputBuffer(),
     hitDone: false,
     stun: 0,
     prev: { lp: false, rp: false, lk: false, rk: false },
@@ -109,21 +128,36 @@ const holdingBack = (f: Fighter, i: InputFrame) => i.x * f.facing < 0;
 function updateFighter(f: Fighter, foe: Fighter, input: InputFrame): void {
   if (f.state !== "ko") f.facing = foe.x >= f.x ? 1 : -1;
 
+  const fwd = (input.x * f.facing) as -1 | 0 | 1; // +1 toward the opponent
+  f.holdDown = input.z === -1 ? f.holdDown + 1 : 0;
+  const pressedNow = BUTTONS.filter((b) => input.buttons[b] && !f.prev[b]);
+  // A held down direction becomes a crouch (d/f etc. count as down for the move list).
+  const downForMoves = input.z === -1 && f.holdDown >= 1;
+  f.buffer.push({
+    dir: toDir(fwd, downForMoves ? -1 : input.z === 1 ? 1 : 0),
+    pressed: pressedNow,
+    held: BUTTONS.filter((b) => input.buttons[b]),
+  });
+
   if (f.state === "hitstun" || f.state === "blockstun") {
     if (--f.stun <= 0) f.state = "idle";
   }
 
+  f.crouching = false;
   if (canAct(f)) {
-    // Attack on a fresh button press.
-    let pressed: Button | null = null;
-    for (const b of BUTTONS) if (input.buttons[b] && !f.prev[b]) pressed = pressed ?? b;
-    if (pressed) {
+    if (pressedNow.length > 0) {
+      const button = pressedNow[0];
+      const special = f.char.specials.find((sp) => f.buffer.matches(steps(sp.notation)));
       f.state = "attack";
-      f.move = pressed;
+      f.move = button;
+      f.activeMove = special ? special.move : f.char.moves[button];
       f.frame = 0;
       f.hitDone = false;
+      f.buffer.clear();
+    } else if (f.holdDown >= CROUCH_HOLD_FRAMES) {
+      f.crouching = true;
+      f.state = "idle";
     } else {
-      const fwd = input.x * f.facing; // +1 toward the opponent
       const speed = fwd > 0 ? f.char.walkSpeed : fwd < 0 ? f.char.backSpeed : 0;
       f.x += fwd * speed * f.facing;
       f.z += input.z * f.char.sidestepSpeed;
@@ -131,10 +165,11 @@ function updateFighter(f: Fighter, foe: Fighter, input: InputFrame): void {
     }
   } else if (f.state === "attack") {
     f.frame += 1;
-    const m = f.char.moves[f.move as Button];
+    const m = f.activeMove as MoveData;
     if (f.frame >= m.startup + m.active + m.recovery) {
       f.state = "idle";
       f.move = null;
+      f.activeMove = null;
     }
   }
 
@@ -156,11 +191,22 @@ function separate(a: Fighter, b: Fighter): void {
 /** Does `atk`'s current move connect on `def` this frame? */
 function connects(atk: Fighter, def: Fighter): boolean {
   if (atk.state !== "attack" || atk.hitDone || def.state === "ko") return false;
-  const m = atk.char.moves[atk.move as Button];
+  const m = atk.activeMove as MoveData;
+  if (m.height === "high" && def.crouching) return false; // ducked under
   if (atk.frame < m.startup || atk.frame >= m.startup + m.active) return false;
   if (Math.abs(atk.z - def.z) >= HIT_DEPTH) return false;
   const ahead = (def.x - atk.x) * atk.facing;
   return ahead > 0 && ahead <= m.reach;
+}
+
+/** Can `def` block a move of this height right now? Lows need a crouch-block, mids a standing block. */
+function guards(def: Fighter, input: InputFrame, incoming: MoveData | null): boolean {
+  if (!incoming || def.state === "attack" || def.state === "hitstun" || def.state === "ko") return false;
+  if (!holdingBack(def, input)) return false;
+  const crouchGuard = input.z === -1;
+  if (incoming.height === "low") return crouchGuard;
+  if (incoming.height === "mid") return !crouchGuard;
+  return true;
 }
 
 function resolveHits(g: GameState, inputs: [InputFrame, InputFrame]): void {
@@ -168,13 +214,14 @@ function resolveHits(g: GameState, inputs: [InputFrame, InputFrame]): void {
   // Decide both hits from the same snapshot so trades are symmetrical.
   const hits: [boolean, boolean] = [connects(a, b), connects(b, a)];
   const defended = [
-    b.state !== "attack" && holdingBack(b, inputs[1]) && b.state !== "hitstun",
-    a.state !== "attack" && holdingBack(a, inputs[0]) && a.state !== "hitstun",
+    guards(b, inputs[1], a.activeMove),
+    guards(a, inputs[0], b.activeMove),
   ];
   const apply = (atk: Fighter, def: Fighter, blocked: boolean) => {
-    const m = atk.char.moves[atk.move as Button];
+    const m = atk.activeMove as MoveData;
     atk.hitDone = true;
     def.move = null;
+    def.activeMove = null;
     def.stun = blocked ? m.blockstun : m.hitstun;
     def.state = blocked ? "blockstun" : "hitstun";
     def.x = clamp(def.x + atk.facing * m.pushback, -STAGE_HALF_WIDTH, STAGE_HALF_WIDTH);
